@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+/.cursor
 /.pnp
 .pnp.*
 .yarn/*
@@ -9,6 +10,10 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+.cursorrules
+.env
+.env.local
+instruction.md
 
 # testing
 /coverage
