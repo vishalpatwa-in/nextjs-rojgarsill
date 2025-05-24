@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
@@ -7,7 +7,6 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
@@ -33,8 +32,6 @@ import {
   X, 
   Save, 
   ArrowLeft,
-  Upload,
-  Eye,
   BookOpen,
   Target,
   List
@@ -50,10 +47,7 @@ const courseFormSchema = z.object({
   thumbnail: z.string().url("Please enter a valid URL").optional().or(z.literal("")),
   price: z.string().refine((val) => !isNaN(Number(val)) && Number(val) >= 0, "Price must be a valid number"),
   discountPrice: z.string().optional(),
-  currency: z.string().default("INR"),
-  duration: z.string().optional(),
-  level: z.enum(["beginner", "intermediate", "advanced"]),
-  language: z.string().default("English"),
+    currency: z.string().optional(),  duration: z.string().optional(),  level: z.enum(["beginner", "intermediate", "advanced"]),  language: z.string().optional(),
   categoryId: z.string().min(1, "Please select a category"),
 })
 
@@ -72,11 +66,11 @@ interface CourseFormProps {
   courseId?: string
 }
 
-export function CourseForm({ categories, instructorId, initialData, courseId }: CourseFormProps) {
+export function CourseForm({ categories, instructorId, initialData }: CourseFormProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const [requirements, setRequirements] = useState<string[]>(initialData?.requirements || [])
-  const [learningOutcomes, setLearningOutcomes] = useState<string[]>(initialData?.learningOutcomes || [])
+  const [requirements, setRequirements] = useState<string[]>([])
+  const [learningOutcomes, setLearningOutcomes] = useState<string[]>([])
   const [newRequirement, setNewRequirement] = useState("")
   const [newOutcome, setNewOutcome] = useState("")
 
@@ -98,7 +92,6 @@ export function CourseForm({ categories, instructorId, initialData, courseId }: 
     },
   })
 
-  // Auto-generate slug from title
   const handleTitleChange = (value: string) => {
     const slug = value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
     form.setValue("slug", slug)
@@ -132,21 +125,17 @@ export function CourseForm({ categories, instructorId, initialData, courseId }: 
       try {
         const formData = new FormData()
         
-        // Add all form fields
         Object.entries(data).forEach(([key, value]) => {
           formData.append(key, value.toString())
         })
         
-        // Add instructor ID
         formData.append("instructorId", instructorId)
-        
-        // Add requirements and learning outcomes as JSON
         formData.append("requirements", JSON.stringify(requirements))
         formData.append("learningOutcomes", JSON.stringify(learningOutcomes))
 
         const result = await createCourse(formData)
 
-        if (result.success) {
+        if (result.success && result.course) {
           toast.success("Course created successfully!")
           router.push(`/dashboard/courses/${result.course.id}`)
         } else {
@@ -411,7 +400,6 @@ export function CourseForm({ categories, instructorId, initialData, courseId }: 
           </TabsContent>
 
           <TabsContent value="outcomes" className="space-y-6">
-            {/* Requirements Section */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Course Requirements</CardTitle>
@@ -442,7 +430,6 @@ export function CourseForm({ categories, instructorId, initialData, courseId }: 
               </CardContent>
             </Card>
 
-            {/* Learning Outcomes Section */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Learning Outcomes</CardTitle>
@@ -475,7 +462,6 @@ export function CourseForm({ categories, instructorId, initialData, courseId }: 
           </TabsContent>
         </Tabs>
 
-        {/* Form Actions */}
         <div className="flex items-center justify-between pt-6 border-t">
           <Button
             type="button"

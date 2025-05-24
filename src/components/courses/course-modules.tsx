@@ -195,7 +195,7 @@ export function CourseModules({ course }: CourseModulesProps) {
         formData.append('order', (modules.length + 1).toString())
         const result = await createModule(formData)
         
-        if (result.success) {
+        if (result.success && result.module) {
           const newModule: Module = {
             id: result.module.id,
             title: result.module.title,
@@ -267,10 +267,12 @@ export function CourseModules({ course }: CourseModulesProps) {
         } else {
           toast.error(result.error || "Failed to update lesson")
         }
-            } else {        const currentModule = modules.find(m => m.id === editingLesson.moduleId)        formData.append('order', (currentModule ? currentModule.lessons.length + 1 : 1).toString())
+      } else {
+        const currentModule = modules.find(m => m.id === editingLesson.moduleId)
+        formData.append('order', (currentModule ? currentModule.lessons.length + 1 : 1).toString())
         const result = await createLesson(formData)
         
-        if (result.success) {
+        if (result.success && result.lesson) {
           const newLesson: Lesson = {
             id: result.lesson.id,
             title: result.lesson.title,
