@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { MobileNav } from "@/components/ui/mobile-nav"
 import { 
   BookOpen, 
   Home, 
@@ -96,8 +97,18 @@ export default function DashboardLayout({
     </div>
   )
 
+  // Mock user data - replace with actual session data
+  const mockUser = {
+    name: "John Doe",
+    email: "john.doe@example.com",
+    image: "/placeholder-avatar.jpg"
+  }
+
   return (
     <div className="flex h-screen bg-gray-50">
+      {/* Mobile Navigation */}
+      <MobileNav user={mockUser} />
+      
       {/* Desktop Sidebar */}
       <div className="hidden lg:flex lg:flex-shrink-0">
         <div className="flex flex-col w-64 bg-white border-r">
@@ -114,17 +125,11 @@ export default function DashboardLayout({
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top Navigation */}
-        <header className="bg-white border-b px-4 py-3 flex items-center justify-between lg:px-6">
+        {/* Top Navigation - Hidden on Mobile */}
+        <header className="hidden lg:flex bg-white border-b px-4 py-3 items-center justify-between lg:px-6">
           <div className="flex items-center">
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="sm" className="lg:hidden">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            
             {/* Search */}
-            <div className="hidden md:flex items-center ml-4">
+            <div className="flex items-center ml-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
@@ -151,16 +156,16 @@ export default function DashboardLayout({
                 <AvatarImage src="/placeholder-avatar.jpg" alt="User" />
                 <AvatarFallback>JD</AvatarFallback>
               </Avatar>
-              <span className="ml-2 text-sm font-medium text-gray-700 hidden md:block">
+              <span className="ml-2 text-sm font-medium text-gray-700">
                 John Doe
               </span>
             </div>
           </div>
         </header>
 
-        {/* Page Content */}
-        <main className="flex-1 overflow-y-auto">
-          <div className="p-6">
+        {/* Page Content with Mobile Padding */}
+        <main className="flex-1 overflow-y-auto pb-16 lg:pb-0">
+          <div className="p-4 lg:p-6">
             {children}
           </div>
         </main>

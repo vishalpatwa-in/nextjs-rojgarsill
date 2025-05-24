@@ -449,4 +449,35 @@ export async function getCategories() {
     console.error('Error fetching categories:', error)
     return { success: false, error: 'Failed to fetch categories' }
   }
+}
+
+export async function getAllCourses() {
+  try {
+    const allCourses = await db
+      .select({
+        id: courses.id,
+        title: courses.title,
+        slug: courses.slug,
+        description: courses.description,
+        thumbnail: courses.thumbnail,
+        price: courses.price,
+        level: courses.level,
+        isPublished: courses.isPublished,
+        createdAt: courses.createdAt,
+        updatedAt: courses.updatedAt,
+        category: {
+          id: categories.id,
+          name: categories.name,
+        },
+      })
+      .from(courses)
+      .leftJoin(categories, eq(courses.categoryId, categories.id))
+      .where(eq(courses.isPublished, true))
+      .orderBy(desc(courses.createdAt))
+
+    return allCourses
+  } catch (error) {
+    console.error('Error fetching all courses:', error)
+    return []
+  }
 } 
