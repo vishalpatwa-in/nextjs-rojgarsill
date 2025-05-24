@@ -22,10 +22,7 @@ export const createSupabaseServerClient = () => {
       get(name: string) {
         return cookieStore.get(name)?.value
       },
-      set(name: string, value: string, options: any) {
-        cookieStore.set({ name, value, ...options })
-      },
-      remove(name: string, options: any) {
+            set(name: string, value: string, options: { path?: string; domain?: string; expires?: Date; httpOnly?: boolean; secure?: boolean; sameSite?: 'strict' | 'lax' | 'none' }) {        cookieStore.set({ name, value, ...options })      },      remove(name: string, options: { path?: string; domain?: string }) {
         cookieStore.set({ name, value: '', ...options })
       },
     },

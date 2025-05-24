@@ -2,7 +2,6 @@
 
 import { db } from '@/lib/db'
 import { categories } from '@/lib/db/schema'
-import { eq } from 'drizzle-orm'
 
 const defaultCategories = [
   {

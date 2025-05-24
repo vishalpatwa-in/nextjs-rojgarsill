@@ -30,7 +30,7 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
   },
   callbacks: {
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account: _account }) {
       if (user) {
         token.role = user.role || 'student'
         token.id = user.id
@@ -44,17 +44,12 @@ export const authOptions: NextAuthOptions = {
       }
       return session
     },
-    async signIn({ user, account, profile }) {
+    async signIn({ user: _user, account: _account, profile: _profile }) {
       // Allow sign in
       return true
     },
   },
-  pages: {
-    signIn: '/auth/signin',
-    signUp: '/auth/signup',
-    error: '/auth/error',
-    verifyRequest: '/auth/verify-request',
-  },
+    pages: {    signIn: '/auth/signin',    error: '/auth/error',    verifyRequest: '/auth/verify-request',  },
   events: {
     async createUser({ user }) {
       // Create user profile when a new user is created

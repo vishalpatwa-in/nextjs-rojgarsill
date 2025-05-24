@@ -338,7 +338,7 @@ export async function createEmailTemplate(formData: FormData) {
       htmlContent: formData.get('htmlContent'),
       textContent: formData.get('textContent') || undefined,
       variables: formData.get('variables') ? JSON.parse(formData.get('variables') as string) : undefined,
-      type: formData.get('type') as any,
+      type: formData.get('type') as 'welcome' | 'enrollment' | 'completion' | 'certificate' | 'payment' | 'reminder' | 'custom',
     })
 
     const [template] = await db
@@ -371,7 +371,7 @@ export async function updateEmailTemplate(templateId: string, formData: FormData
       htmlContent: formData.get('htmlContent'),
       textContent: formData.get('textContent') || undefined,
       variables: formData.get('variables') ? JSON.parse(formData.get('variables') as string) : undefined,
-      type: formData.get('type') as any,
+      type: formData.get('type') as 'welcome' | 'enrollment' | 'completion' | 'certificate' | 'payment' | 'reminder' | 'custom',
     })
 
     const [template] = await db
