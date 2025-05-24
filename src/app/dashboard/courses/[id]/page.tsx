@@ -24,13 +24,14 @@ import { CourseStudents } from "@/components/courses/course-students"
 import { CourseAnalytics } from "@/components/courses/course-analytics"
 
 interface CoursePageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 export default async function CoursePage({ params }: CoursePageProps) {
-  const { success, course, error } = await getCourseWithModules(params.id)
+  const { id } = await params
+  const { success, course, error } = await getCourseWithModules(id)
 
   if (!success || !course) {
     notFound()
@@ -158,7 +159,11 @@ export default async function CoursePage({ params }: CoursePageProps) {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          <CourseOverview course={course} />
+          <CourseOverview course={{
+            ...course,
+            requirements: Array.isArray(course.requirements) ? course.requirements : [],
+            learningOutcomes: Array.isArray(course.learningOutcomes) ? course.learningOutcomes : [],
+          }} />
         </TabsContent>
 
         <TabsContent value="curriculum" className="space-y-6">

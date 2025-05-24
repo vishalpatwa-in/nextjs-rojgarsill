@@ -29,22 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  Video,
-  MoreHorizontal,
-  Calendar,
-  Clock,
-  Users,
-  PlayCircle,
-  StopCircle,
-  Edit,
-  Trash2,
-  Copy,
-  Download,
-  Settings,
-  ExternalLink,
-  Recording
-} from "lucide-react"
+import {  Video,  MoreHorizontal,  Calendar,  Clock,  Users,  PlayCircle,  StopCircle,  Edit,  Trash2,  Copy,  Download,  Settings,  ExternalLink,  FileVideo} from "lucide-react"
 import { toast } from "sonner"
 import { deleteLiveClass, startLiveClass, endLiveClass } from "@/lib/actions/live-classes"
 
@@ -272,12 +257,7 @@ export function LiveClassCard({ liveClass }: LiveClassCardProps) {
                   <Users className="h-4 w-4 mr-1" />
                   {liveClass.maxAttendees ? `Max ${liveClass.maxAttendees}` : 'Unlimited'}
                 </div>
-                {liveClass.recordingUrl && (
-                  <div className="flex items-center">
-                    <Recording className="h-4 w-4 mr-1" />
-                    Recording available
-                  </div>
-                )}
+                                {liveClass.recordingUrl && (                  <div className="flex items-center">                    <FileVideo className="h-4 w-4 mr-1" />                    Recording available                  </div>                )}
               </div>
             </div>
           </div>

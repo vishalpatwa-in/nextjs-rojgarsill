@@ -54,9 +54,7 @@ export default async function PaymentsPage() {
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
-                  ₹{paymentHistory.reduce((sum, item) => sum + parseFloat(item.payment.amount), 0).toFixed(2)}
-                </div>
+                                <div className="text-2xl font-bold">                  ₹{(paymentHistory || []).reduce((sum, item) => sum + parseFloat(item.payment.amount), 0).toFixed(2)}                </div>
                 <p className="text-xs text-muted-foreground">
                   +20.1% from last month
                 </p>
@@ -69,12 +67,8 @@ export default async function PaymentsPage() {
                 <CreditCard className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
-                  {paymentHistory.filter(item => item.payment.status === 'completed').length}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {((paymentHistory.filter(item => item.payment.status === 'completed').length / paymentHistory.length) * 100 || 0).toFixed(1)}% success rate
-                </p>
+                                <div className="text-2xl font-bold">                  {(paymentHistory || []).filter(item => item.payment.status === 'completed').length}                </div>
+                                  <p className="text-xs text-muted-foreground">                    {(((paymentHistory || []).filter(item => item.payment.status === 'completed').length / (paymentHistory || []).length) * 100 || 0).toFixed(1)}% success rate                  </p>
               </CardContent>
             </Card>
 
@@ -111,9 +105,7 @@ export default async function PaymentsPage() {
                 <CardTitle>Recent Payments</CardTitle>
               </CardHeader>
               <CardContent className="pl-2">
-                <Suspense fallback={<div>Loading payment stats...</div>}>
-                  <PaymentStats paymentHistory={paymentHistory} />
-                </Suspense>
+                              <Suspense fallback={<div>Loading payment stats...</div>}>                <PaymentStats paymentHistory={paymentHistory || []} />              </Suspense>
               </CardContent>
             </Card>
 
@@ -176,9 +168,7 @@ export default async function PaymentsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Suspense fallback={<div>Loading payment history...</div>}>
-                <PaymentHistory paymentHistory={paymentHistory} />
-              </Suspense>
+                          <Suspense fallback={<div>Loading payment history...</div>}>              <PaymentHistory paymentHistory={paymentHistory || []} />            </Suspense>
             </CardContent>
           </Card>
         </TabsContent>
@@ -231,9 +221,7 @@ export default async function PaymentsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Suspense fallback={<div>Loading subscription plans...</div>}>
-                  <SubscriptionPlans plans={subscriptionPlans} userId={session.user.id} />
-                </Suspense>
+                                <Suspense fallback={<div>Loading subscription plans...</div>}>                  <SubscriptionPlans plans={subscriptionPlans || []} userId={session.user.id} />                </Suspense>
               </CardContent>
             </Card>
           </div>
@@ -248,10 +236,7 @@ export default async function PaymentsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {paymentHistory
-                  .filter(item => item.invoice)
-                  .map((item) => (
+                            <div className="space-y-4">                {(paymentHistory || [])                  .filter(item => item.invoice)                  .map((item) => (
                     <div key={item.payment.id} className="flex items-center justify-between p-4 border rounded-lg">
                       <div className="flex items-center space-x-4">
                         <Receipt className="h-6 w-6 text-muted-foreground" />
