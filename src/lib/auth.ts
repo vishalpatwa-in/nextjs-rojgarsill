@@ -49,7 +49,7 @@ export const authOptions: NextAuthOptions = {
       return true
     },
   },
-    pages: {    signIn: '/auth/signin',    error: '/auth/error',    verifyRequest: '/auth/verify-request',  },
+  pages: {    signIn: '/auth/signin',    error: '/auth/error',    verifyRequest: '/auth/verify-request',  },
   events: {
     async createUser({ user }) {
       // Create user profile when a new user is created

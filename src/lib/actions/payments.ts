@@ -6,15 +6,13 @@ import { db } from '@/lib/db'
 import { 
   payments, 
   invoices, 
-  paymentMethods, 
   subscriptions, 
   subscriptionPlans, 
   refunds, 
   paymentWebhooks,
-  courses,
-  users 
+  courses
 } from '@/lib/db/schema'
-import { eq, and, desc, sql } from 'drizzle-orm'
+import { eq, desc, sql } from 'drizzle-orm'
 import Razorpay from 'razorpay'
 import { Cashfree } from 'cashfree-pg'
 import crypto from 'crypto'
@@ -36,7 +34,7 @@ const cashfree = new Cashfree({
   appId: process.env.CASHFREE_APP_ID || '',
   secretKey: process.env.CASHFREE_SECRET_KEY || '',
   env: process.env.NODE_ENV === 'production' ? 'PROD' : 'SANDBOX'
-})
+} as any)
 
 // Validation schemas
 const createPaymentSchema = z.object({
@@ -118,14 +116,15 @@ class CashfreeProvider implements PaymentProvider {
       },
     }
     
-    return await cashfree.PGCreateOrder('2023-08-01', orderRequest)
+    return await (cashfree as any).PGCreateOrder('2023-08-01', orderRequest)
   }
 
   async verifyPayment(data: any): Promise<boolean> {
     try {
-      const response = await cashfree.PGOrderFetchPayments('2023-08-01', data.orderId)
+      const response = await (cashfree as any).PGOrderFetchPayments('2023-08-01', data.orderId)
       return response.length > 0 && response[0].payment_status === 'SUCCESS'
     } catch (error) {
+      console.error('Payment verification error:', error)
       return false
     }
   }
@@ -137,7 +136,7 @@ class CashfreeProvider implements PaymentProvider {
       refund_note: data.reason,
     }
     
-    return await cashfree.PGOrderCreateRefund('2023-08-01', data.orderId, refundRequest)
+    return await (cashfree as any).PGOrderCreateRefund('2023-08-01', data.orderId, refundRequest)
   }
 }
 
@@ -185,24 +184,6 @@ export async function createPayment(formData: FormData) {
       paymentMethod: formData.get('paymentMethod'),
       metadata: formData.get('metadata') ? JSON.parse(formData.get('metadata') as string) : undefined,
     })
-
-    // Get course or subscription details
-    let course = null
-    let subscription = null
-    
-    if (data.courseId) {
-      [course] = await db
-        .select()
-        .from(courses)
-        .where(eq(courses.id, data.courseId))
-    }
-    
-    if (data.subscriptionId) {
-      [subscription] = await db
-        .select()
-        .from(subscriptions)
-        .where(eq(subscriptions.id, data.subscriptionId))
-    }
 
     // Create invoice first
     const invoiceNumber = await generateInvoiceNumber()
@@ -382,7 +363,7 @@ export async function createRefund(formData: FormData) {
       .returning()
 
     // Update payment refunded amount
-    const currentRefunded = parseFloat(payment.refundedAmount) || 0
+    const currentRefunded = parseFloat(payment.refundedAmount || '0') || 0
     const newRefundedAmount = currentRefunded + data.amount
     
     await db
@@ -448,13 +429,13 @@ export async function createSubscription(formData: FormData) {
         status: 'active',
         currentPeriodStart: now,
         currentPeriodEnd: periodEnd,
-        trialStart: plan.trialPeriodDays > 0 ? now : null,
-        trialEnd: plan.trialPeriodDays > 0 ? new Date(now.getTime() + plan.trialPeriodDays * 24 * 60 * 60 * 1000) : null,
+        trialStart: (plan.trialPeriodDays || 0) > 0 ? now : null,
+        trialEnd: (plan.trialPeriodDays || 0) > 0 ? new Date(now.getTime() + (plan.trialPeriodDays || 0) * 24 * 60 * 60 * 1000) : null,
       })
       .returning()
 
     // Create initial payment if not in trial
-    if (plan.trialPeriodDays === 0) {
+    if ((plan.trialPeriodDays || 0) === 0) {
       const paymentData = new FormData()
       paymentData.append('userId', data.userId)
       paymentData.append('subscriptionId', subscription.id)
