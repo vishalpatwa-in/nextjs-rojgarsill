@@ -123,11 +123,9 @@ export function PaymentStats({ paymentHistory }: PaymentStatsProps) {
               tickLine={{ stroke: '#e5e7eb' }}
             />
             <Tooltip 
-              formatter={[
-                (value: number, name: string) => [
-                  name === 'amount' ? `₹${value}` : value,
-                  name === 'amount' ? 'Revenue' : 'Payments'
-                ]
+              formatter={(value: number, name: string) => [
+                name === 'amount' ? `₹${value}` : value,
+                name === 'amount' ? 'Revenue' : 'Payments'
               ]}
               labelStyle={{ color: '#374151' }}
               contentStyle={{ 
@@ -187,7 +185,7 @@ export function PaymentStats({ paymentHistory }: PaymentStatsProps) {
                   className="w-3 h-3 rounded-full" 
                   style={{ backgroundColor: item.color }}
                 />
-                <span className="text-sm">{item.name}: {item.value}</span>
+                <span className="text-sm">{item.name}: {Number(item.value)}</span>
               </div>
             ))}
           </div>
@@ -234,7 +232,7 @@ export function PaymentStats({ paymentHistory }: PaymentStatsProps) {
                   />
                   <span className="text-sm capitalize">{item.name}</span>
                 </div>
-                <span className="text-sm font-medium">{item.value}</span>
+                <span className="text-sm font-medium">{Number(item.value)}</span>
               </div>
             ))}
           </div>
