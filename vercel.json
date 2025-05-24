@@ -1,9 +1,4 @@
-{
-  "version": 2,
-  "name": "rojgarskill",
-  "alias": ["rojgarskill.vercel.app"],
-  "regions": ["sin1", "bom1"],
-  "framework": "nextjs",
+{  "version": 2,  "name": "rojgarskill",  "alias": ["rojgarskill.vercel.app"],  "framework": "nextjs",
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "installCommand": "npm ci",
