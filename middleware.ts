@@ -20,6 +20,13 @@ const adminRoutes = [
   '/dashboard/admin'
 ]
 
+const instructorRoutes = [
+  '/dashboard/courses',
+  '/dashboard/live-classes',
+  '/dashboard/certificates',
+  '/dashboard/analytics/instructor'
+]
+
 const apiRoutes = [
   '/api/courses',
   '/api/payments',
@@ -106,6 +113,8 @@ export async function middleware(request: NextRequest) {
   if (
     pathname === '/' ||
     pathname === '/auth/signin' ||
+    pathname === '/auth/admin' ||
+    pathname === '/auth/instructor' ||
     pathname === '/auth/signup' ||
     pathname === '/api/auth/signin' ||
     pathname === '/api/auth/callback' ||
@@ -124,6 +133,7 @@ export async function middleware(request: NextRequest) {
   // Check if route is protected
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route))
   const isAdminRoute = adminRoutes.some(route => pathname.startsWith(route))
+  const isInstructorRoute = instructorRoutes.some(route => pathname.startsWith(route))
   const isApiRoute = apiRoutes.some(route => pathname.startsWith(route))
 
   if (isProtectedRoute || isApiRoute) {
@@ -136,9 +146,18 @@ export async function middleware(request: NextRequest) {
       secret: process.env.NEXTAUTH_SECRET 
     })
 
-    // If no user or token, redirect to signin
+    // If no user or token, redirect to appropriate signin page
     if (!user && !token) {
-      const signInUrl = new URL('/auth/signin', request.url)
+      // Determine which login page to redirect to based on the route
+      let signInPath = '/auth/signin'
+      
+      if (isAdminRoute) {
+        signInPath = '/auth/admin'
+      } else if (isInstructorRoute) {
+        signInPath = '/auth/instructor'
+      }
+      
+      const signInUrl = new URL(signInPath, request.url)
       signInUrl.searchParams.set('callbackUrl', pathname)
       return NextResponse.redirect(signInUrl)
     }
@@ -150,7 +169,24 @@ export async function middleware(request: NextRequest) {
         (token?.role === 'admin')
       
       if (!isAdmin) {
-        return new NextResponse('Forbidden', { status: 403 })
+        // Redirect admin-specific access denied to admin login
+        const adminSignInUrl = new URL('/auth/admin', request.url)
+        adminSignInUrl.searchParams.set('error', 'AccessDenied')
+        return NextResponse.redirect(adminSignInUrl)
+      }
+    }
+    
+    // Check instructor access
+    if (isInstructorRoute) {
+      const isInstructor =
+        (user?.app_metadata?.role === 'instructor' || user?.app_metadata?.role === 'admin') ||
+        (token?.role === 'instructor' || token?.role === 'admin')
+        
+      if (!isInstructor) {
+        // Redirect instructor-specific access denied to instructor login
+        const instructorSignInUrl = new URL('/auth/instructor', request.url)
+        instructorSignInUrl.searchParams.set('error', 'AccessDenied')
+        return NextResponse.redirect(instructorSignInUrl)
       }
     }
 

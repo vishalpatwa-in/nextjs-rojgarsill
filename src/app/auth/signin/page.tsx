@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { BookOpen, Mail, Loader2 } from "lucide-react"
+import { BookOpen, Mail, Loader2, ShieldCheck, GraduationCap } from "lucide-react"
 
 export default function SignInPage() {
   const [email, setEmail] = useState("")
@@ -69,9 +69,25 @@ export default function SignInPage() {
           <p className="text-gray-600 mt-2">Sign in to your account to continue learning</p>
         </div>
 
+        {/* Specialized login links */}
+        <div className="flex justify-center gap-4 mb-6">
+          <Link href="/auth/admin">
+            <Button variant="outline" size="sm" className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" />
+              Admin Login
+            </Button>
+          </Link>
+          <Link href="/auth/instructor">
+            <Button variant="outline" size="sm" className="flex items-center gap-2">
+              <GraduationCap className="h-4 w-4" />
+              Instructor Login
+            </Button>
+          </Link>
+        </div>
+
         <Card>
           <CardHeader>
-            <CardTitle>Sign In</CardTitle>
+            <CardTitle>Student Sign In</CardTitle>
             <CardDescription>
               Choose your preferred sign-in method
             </CardDescription>
