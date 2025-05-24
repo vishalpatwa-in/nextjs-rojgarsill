@@ -1,0 +1,1 @@
+[Cursor] Fix build errors: Supabase async cookies(), add critters, fix type issues

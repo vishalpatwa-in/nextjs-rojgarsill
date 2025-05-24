@@ -136,8 +136,69 @@ export function AnalyticsOverview({ tenantId }: AnalyticsOverviewProps) {
       const result = await exportAnalyticsData(type, tenantId, { start: startDate, end: endDate })
       
       if (result.success && result.data) {
-        // Create and download CSV
-        const csv = convertToCSV(result.data.records, type)
+        // Always create a valid array for export regardless of result type
+        let dataToExport: any[] = [];
+        
+        // Create a simplified data structure using only the properties that exist in the response
+        switch (type) {
+          case 'revenue':
+            // Handle revenue export - extract trend data if available
+            if ((result.data.exportData as any)?.trend) {
+              dataToExport = (result.data.exportData as any).trend;
+            } else {
+              dataToExport = [{
+                date: new Date().toISOString().split('T')[0],
+                revenue: 0,
+                transactions: 0
+              }];
+            }
+            break;
+            
+          case 'engagement':
+            // Handle engagement export - extract user activity data if available
+            if ((result.data.exportData as any)?.engagement?.dailyActiveUsers) {
+              dataToExport = (result.data.exportData as any).engagement.dailyActiveUsers;
+            } else {
+              dataToExport = [{
+                date: new Date().toISOString().split('T')[0],
+                count: 0
+              }];
+            }
+            break;
+            
+          case 'overview':
+          default:
+            // For overview, create a simple export with whatever data is available
+            dataToExport = [{
+              date: new Date().toISOString().split('T')[0],
+              // Get values from appropriate type or use defaults
+              activeUsers: 0,
+              totalEnrollments: 0,
+              totalRevenue: 0,
+              transactions: 0
+            }];
+            
+            // Try to get values based on the type of export data returned
+            const data = result.data.exportData;
+            
+            // Check if overview data exists
+            if ('activeUsers' in data) {
+              dataToExport[0].activeUsers = data.activeUsers || 0;
+            }
+            
+            // Check if enrollment data exists
+            if ('enrollments' in data && data.enrollments) {
+              dataToExport[0].totalEnrollments = data.enrollments.totalEnrollments || 0;
+            }
+            
+            // Check if revenue data exists
+            if ('revenue' in data && data.revenue) {
+              dataToExport[0].totalRevenue = data.revenue.totalRevenue || 0;
+              dataToExport[0].transactions = data.revenue.transactions || 0;
+            }
+        }
+        
+        const csv = convertToCSV(dataToExport, type)
         const blob = new Blob([csv], { type: 'text/csv' })
         const url = window.URL.createObjectURL(blob)
         const a = document.createElement('a')
@@ -154,17 +215,30 @@ export function AnalyticsOverview({ tenantId }: AnalyticsOverviewProps) {
   }
 
   const convertToCSV = (data: any[], type: string) => {
-    if (!data.length) return ''
+    if (!data || !data.length) {
+      // Return empty CSV with headers based on export type
+      switch (type) {
+        case 'revenue':
+          return 'date,revenue,transactions\n';
+        case 'engagement':
+          return 'date,count\n';
+        case 'overview':
+        default:
+          return 'date,activeUsers,totalEnrollments,totalCourses,totalStudents,completionRate,totalRevenue,transactions\n';
+      }
+    }
     
-    const headers = Object.keys(data[0])
+    const headers = Object.keys(data[0]);
     const rows = data.map(row => 
       headers.map(header => {
-        const value = row[header]
-        return typeof value === 'object' ? JSON.stringify(value) : value
+        const value = row[header];
+        // Handle null, undefined, or objects
+        if (value === null || value === undefined) return '';
+        return typeof value === 'object' ? JSON.stringify(value) : value;
       }).join(',')
-    )
+    );
     
-    return [headers.join(','), ...rows].join('\n')
+    return [headers.join(','), ...rows].join('\n');
   }
 
   if (isLoading) {

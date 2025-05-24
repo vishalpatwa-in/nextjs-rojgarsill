@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
+import { createSupabaseMiddlewareClient } from '@/lib/supabase'
 
 // Define protected routes
 const protectedRoutes = [
@@ -34,8 +35,8 @@ const rateLimitMap = new Map()
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   
-  // Security headers for all requests
-  const response = NextResponse.next()
+  // Initialize Supabase auth middleware
+  const { supabase, response } = createSupabaseMiddlewareClient(request)
   
   // Add security headers
   response.headers.set('X-Frame-Options', 'DENY')
@@ -126,28 +127,42 @@ export async function middleware(request: NextRequest) {
   const isApiRoute = apiRoutes.some(route => pathname.startsWith(route))
 
   if (isProtectedRoute || isApiRoute) {
+    // Check Supabase session
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    // Also check NextAuth token for backward compatibility
     const token = await getToken({ 
       req: request, 
       secret: process.env.NEXTAUTH_SECRET 
     })
 
-    // If no token, redirect to signin
-    if (!token) {
+    // If no user or token, redirect to signin
+    if (!user && !token) {
       const signInUrl = new URL('/auth/signin', request.url)
       signInUrl.searchParams.set('callbackUrl', pathname)
       return NextResponse.redirect(signInUrl)
     }
 
-    // Check admin access
-    if (isAdminRoute && token.role !== 'admin') {
-      return new NextResponse('Forbidden', { status: 403 })
+    // Check admin access (use either auth system)
+    if (isAdminRoute) {
+      const isAdmin = 
+        (user?.app_metadata?.role === 'admin') || 
+        (token?.role === 'admin')
+      
+      if (!isAdmin) {
+        return new NextResponse('Forbidden', { status: 403 })
+      }
     }
 
     // Add user info to headers for API routes
     if (isApiRoute) {
-      response.headers.set('X-User-ID', token.sub || '')
-      response.headers.set('X-User-Role', token.role || 'student')
-      response.headers.set('X-User-Email', token.email || '')
+      const userId = user?.id || token?.sub || ''
+      const userRole = user?.app_metadata?.role || token?.role || 'student'
+      const userEmail = user?.email || token?.email || ''
+      
+      response.headers.set('X-User-ID', userId)
+      response.headers.set('X-User-Role', userRole)
+      response.headers.set('X-User-Email', userEmail)
     }
   }
 

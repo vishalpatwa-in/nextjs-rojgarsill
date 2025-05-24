@@ -14,7 +14,7 @@ const eslintConfig = [
   {
     rules: {
       // Disable strict TypeScript rules that are causing too many errors
-      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-unused-vars": "warn",
       
       // Disable React-specific rules that are too strict for this project

@@ -258,9 +258,19 @@ export async function updateLiveClass(liveClassId: string, formData: FormData) {
         }
       } else if (existingClass.platform === 'google_meet' && existingClass.meetingId) {
         try {
-          const scheduledAt = validatedData.scheduledAt ? new Date(validatedData.scheduledAt) : existingClass.scheduledAt
-          const duration = validatedData.duration || existingClass.duration
-          const endTime = new Date(scheduledAt.getTime() + duration * 60000)
+          const scheduledAt = validatedData.scheduledAt ? new Date(validatedData.scheduledAt) : existingClass.scheduledAt;
+          
+          // Ensure duration is a number by converting both possible sources
+          let durationMinutes: number;
+          if (validatedData.duration) {
+            durationMinutes = parseInt(String(validatedData.duration), 10);
+          } else {
+            durationMinutes = parseInt(String(existingClass.duration), 10);
+          }
+          
+          // Convert minutes to milliseconds for the date calculation
+          const durationMs = durationMinutes * 60 * 1000;
+          const endTime = new Date(scheduledAt.getTime() + durationMs);
 
           await GoogleMeetAPI.updateMeeting(existingClass.meetingId, {
             summary: validatedData.title || existingClass.title,

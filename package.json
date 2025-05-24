@@ -31,6 +31,7 @@
     "cashfree-pg": "^5.0.8",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "critters": "^0.0.23",
     "crypto-js": "^4.2.0",
     "date-fns": "^4.1.0",
     "drizzle-kit": "^0.31.1",

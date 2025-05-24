@@ -82,7 +82,7 @@ export async function createCourse(formData: FormData) {
       price: validatedData.price,
       discountPrice: validatedData.discountPrice || null,
       currency: validatedData.currency,
-      duration: validatedData.duration,
+      duration: validatedData.duration ? parseInt(validatedData.duration) : null,
       level: validatedData.level,
       language: validatedData.language,
       requirements: validatedData.requirements,
@@ -113,16 +113,23 @@ export async function updateCourse(courseId: string, formData: FormData) {
     const validatedData = createCourseSchema.partial().parse({
       ...data,
       requirements,
-      learningOutcomes,
-      duration: data.duration ? parseInt(data.duration as string) : undefined,
+      learningOutcomes
     })
+
+    // Create a processed data object with the correct types
+    const processedData: any = {
+      ...validatedData,
+      updatedAt: new Date()
+    }
+
+    // Convert duration to number if it exists
+    if (validatedData.duration) {
+      processedData.duration = parseInt(validatedData.duration)
+    }
 
     const [updatedCourse] = await db
       .update(courses)
-      .set({
-        ...validatedData,
-        updatedAt: new Date(),
-      })
+      .set(processedData)
       .where(eq(courses.id, courseId))
       .returning()
 

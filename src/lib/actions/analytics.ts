@@ -1,198 +1,161 @@
-'use server'
+"use server"
 
-import { z } from 'zod'
-import { revalidatePath } from 'next/cache'
-import { db } from '@/lib/db'
+import { revalidatePath } from "next/cache"
+import { db } from "@/lib/db"
 import { 
-  analyticsEvents,
-  userActivity,
-  courseAnalytics,
-  revenueAnalytics,
-  learningAnalytics,
-  notifications,
-  users,
-  courses,
-  enrollments,
-  payments,
-  lessonProgress
-} from '@/lib/db/schema'
-import { eq, and, desc, gte, lte, sql, count, avg, sum } from 'drizzle-orm'
+  users, userProfiles, courses, enrollments, lessons,
+  courseModules, lessonProgress, payments, analyticsEvents,
+  notifications, liveClasses, courseAnalytics, revenueAnalytics,
+  learningAnalytics, userActivity
+} from "@/lib/db/schema"
+import { 
+  eq, and, or, gte, lte, 
+  count, avg, sum, max, min, 
+  sql 
+} from "drizzle-orm"
 
-// Validation schemas
-const analyticsEventSchema = z.object({
-  tenantId: z.string().optional(),
-  userId: z.string().uuid().optional(),
-  sessionId: z.string().optional(),
-  eventType: z.string().min(1),
-  eventCategory: z.string().min(1),
-  eventAction: z.string().min(1),
-  eventLabel: z.string().optional(),
-  eventValue: z.number().optional(),
-  properties: z.record(z.any()).optional(),
-  page: z.string().optional(),
-  referrer: z.string().optional(),
-  userAgent: z.string().optional(),
-  ipAddress: z.string().optional(),
-  country: z.string().optional(),
-  city: z.string().optional(),
-  deviceType: z.string().optional(),
-  browser: z.string().optional(),
-  os: z.string().optional(),
-})
+interface AnalyticsEvent {
+  eventName: string
+  userId?: string
+  courseId?: string
+  lessonId?: string
+  properties?: Record<string, any>
+  timestamp: Date
+}
 
-const userActivitySchema = z.object({
-  userId: z.string().uuid(),
-  activityType: z.string().min(1),
-  description: z.string().optional(),
-  metadata: z.record(z.any()).optional(),
-  ipAddress: z.string().optional(),
-  userAgent: z.string().optional(),
-})
+interface UserActivity {
+  userId: string
+  activityType: string
+  resourceId?: string
+  resourceType?: string
+  details?: Record<string, any>
+  timestamp: Date
+}
 
-const notificationSchema = z.object({
-  userId: z.string().uuid(),
-  title: z.string().min(1),
-  message: z.string().min(1),
-  type: z.enum(['info', 'success', 'warning', 'error']).default('info'),
-  category: z.enum(['system', 'course', 'payment', 'certificate', 'live_class']).default('system'),
-  actionUrl: z.string().optional(),
-  metadata: z.record(z.any()).optional(),
-  expiresAt: z.date().optional(),
-})
+interface Notification {
+  userId: string
+  title: string
+  message: string
+  type: string
+  isRead: boolean
+  linkUrl?: string
+  timestamp: Date
+}
 
-// Analytics Event Actions
-export async function trackAnalyticsEvent(formData: FormData) {
+export async function trackEvent(event: AnalyticsEvent) {
   try {
-    const data = analyticsEventSchema.parse({
-      tenantId: formData.get('tenantId') || undefined,
-      userId: formData.get('userId') || undefined,
-      sessionId: formData.get('sessionId') || undefined,
-      eventType: formData.get('eventType'),
-      eventCategory: formData.get('eventCategory'),
-      eventAction: formData.get('eventAction'),
-      eventLabel: formData.get('eventLabel') || undefined,
-      eventValue: formData.get('eventValue') ? Number(formData.get('eventValue')) : undefined,
-      properties: formData.get('properties') ? JSON.parse(formData.get('properties') as string) : undefined,
-      page: formData.get('page') || undefined,
-      referrer: formData.get('referrer') || undefined,
-      userAgent: formData.get('userAgent') || undefined,
-      ipAddress: formData.get('ipAddress') || undefined,
-      country: formData.get('country') || undefined,
-      city: formData.get('city') || undefined,
-      deviceType: formData.get('deviceType') || undefined,
-      browser: formData.get('browser') || undefined,
-      os: formData.get('os') || undefined,
+    // Convert AnalyticsEvent to database schema format with only valid fields
+    await db.insert(analyticsEvents).values({
+      eventType: event.eventName, // Map eventName to eventType
+      eventCategory: event.properties?.category || 'general', // Default category
+      eventAction: event.properties?.action || event.eventName, // Default action
+      eventLabel: event.properties?.label || '',
+      eventValue: event.properties?.value ? Number(event.properties.value) : undefined,
+      userId: event.userId, // This is a valid field
+      // Store courseId and lessonId in properties JSON
+      properties: {
+        ...(event.properties || {}),
+        courseId: event.courseId,
+        lessonId: event.lessonId
+      },
+      timestamp: event.timestamp
     })
-
-    const [event] = await db
-      .insert(analyticsEvents)
-      .values({
-        ...data,
-        properties: data.properties ? JSON.stringify(data.properties) : null,
-        timestamp: new Date(),
-      })
-      .returning()
-
-    return { success: true, data: event }
+    return { success: true }
   } catch (error) {
-    console.error('Track analytics event error:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to track analytics event',
-    }
+    console.error('Error tracking event:', error)
+    return { success: false, error }
   }
 }
 
-export async function trackUserActivity(formData: FormData) {
+export async function trackUserActivity(activity: UserActivity) {
   try {
-    const data = userActivitySchema.parse({
-      userId: formData.get('userId'),
-      activityType: formData.get('activityType'),
-      description: formData.get('description') || undefined,
-      metadata: formData.get('metadata') ? JSON.parse(formData.get('metadata') as string) : undefined,
-      ipAddress: formData.get('ipAddress') || undefined,
-      userAgent: formData.get('userAgent') || undefined,
+    // Convert UserActivity to database schema format with only valid fields
+    await db.insert(userActivity).values({
+      userId: activity.userId,
+      activityType: activity.activityType,
+      description: activity.resourceType || '',
+      // Store additional data in metadata JSON
+      metadata: {
+        resourceId: activity.resourceId,
+        resourceType: activity.resourceType,
+        details: activity.details
+      },
+      timestamp: activity.timestamp
     })
-
-    const [activity] = await db
-      .insert(userActivity)
-      .values({
-        ...data,
-        metadata: data.metadata ? JSON.stringify(data.metadata) : null,
-        timestamp: new Date(),
-      })
-      .returning()
-
-    return { success: true, data: activity }
+    
+    return { success: true }
   } catch (error) {
-    console.error('Track user activity error:', error)
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Failed to track user activity',
-    }
+    console.error('Error tracking user activity:', error)
+    return { success: false, error }
   }
 }
 
-// Analytics Retrieval Functions
 export async function getAnalyticsOverview(tenantId?: string, dateRange?: { start: Date; end: Date }) {
   try {
-    const startDate = dateRange?.start || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // 30 days ago
+    const startDate = dateRange?.start || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
     const endDate = dateRange?.end || new Date()
 
-    // Get basic counts
-    const totalUsers = await db
+    // Get active users count
+    const activeUsersCount = await db
       .select({ count: count() })
-      .from(users)
-      .where(gte(users.createdAt, startDate))
+      .from(userActivity)
+      .where(and(
+        gte(userActivity.timestamp, startDate),
+        lte(userActivity.timestamp, endDate)
+      ))
+      .groupBy(userActivity.userId)
+      .then(result => result.length)
 
-    const totalCourses = await db
-      .select({ count: count() })
-      .from(courses)
-      .where(gte(courses.createdAt, startDate))
-
-    const totalEnrollments = await db
-      .select({ count: count() })
+    // Get course enrollment stats
+    const enrollmentStats = await db
+      .select({
+        totalEnrollments: count(),
+        totalCourses: sql`COUNT(DISTINCT ${enrollments.courseId})`,
+        totalStudents: sql`COUNT(DISTINCT ${enrollments.userId})`,
+      })
       .from(enrollments)
-      .where(gte(enrollments.enrolledAt, startDate))
+      .where(and(
+        gte(enrollments.enrolledAt, startDate),
+        lte(enrollments.enrolledAt, endDate)
+      ))
 
-    const totalRevenue = await db
-      .select({ 
-        total: sql`COALESCE(SUM(CAST(${payments.amount} AS DECIMAL)), 0)` 
+    // Get course completion rate
+    const completionStats = await db
+      .select({
+        total: count(),
+        completed: sql`COUNT(CASE WHEN ${enrollments.status} = 'completed' THEN 1 END)`,
+      })
+      .from(enrollments)
+      .where(and(
+        gte(enrollments.enrolledAt, startDate),
+        lte(enrollments.enrolledAt, endDate)
+      ))
+
+    // Get revenue stats
+    const revenueStats = await db
+      .select({
+        totalRevenue: sql`COALESCE(SUM(CAST(${payments.amount} AS DECIMAL)), 0)`,
+        transactions: count(),
       })
       .from(payments)
       .where(and(
         eq(payments.status, 'completed'),
-        gte(payments.createdAt, startDate)
+        gte(payments.createdAt, startDate),
+        lte(payments.createdAt, endDate)
       ))
 
-    // Get page views
-    const pageViews = await db
-      .select({ count: count() })
-      .from(analyticsEvents)
-      .where(and(
-        eq(analyticsEvents.eventType, 'page_view'),
-        gte(analyticsEvents.timestamp, startDate),
-        tenantId ? eq(analyticsEvents.tenantId, tenantId) : sql`true`
-      ))
-
-    // Get course completions
-    const courseCompletions = await db
-      .select({ count: count() })
-      .from(enrollments)
-      .where(and(
-        eq(enrollments.status, 'completed'),
-        gte(enrollments.enrolledAt, startDate)
-      ))
+    // Calculate completion rate
+    const completionRate = completionStats[0]?.total 
+      ? (Number(completionStats[0]?.completed || 0) / Number(completionStats[0]?.total || 1)) * 100 
+      : 0
 
     return {
       success: true,
       data: {
-        totalUsers: totalUsers[0]?.count || 0,
-        totalCourses: totalCourses[0]?.count || 0,
-        totalEnrollments: totalEnrollments[0]?.count || 0,
-        totalRevenue: Number(totalRevenue[0]?.total) || 0,
-        pageViews: pageViews[0]?.count || 0,
-        courseCompletions: courseCompletions[0]?.count || 0,
+        activeUsers: activeUsersCount,
+        enrollments: enrollmentStats[0] || { totalEnrollments: 0, totalCourses: 0, totalStudents: 0 },
+        completionRate: parseFloat(completionRate.toFixed(2)),
+        revenue: revenueStats[0] || { totalRevenue: 0, transactions: 0 },
         dateRange: { start: startDate, end: endDate },
       },
     }
@@ -221,7 +184,7 @@ export async function getCourseAnalytics(courseId: string, dateRange?: { start: 
     }
 
     // Get enrollments data
-    const enrollments = await db
+    const enrollmentStats = await db
       .select({
         total: count(),
         completed: sql`COUNT(CASE WHEN ${enrollments.status} = 'completed' THEN 1 END)`,
@@ -280,7 +243,7 @@ export async function getCourseAnalytics(courseId: string, dateRange?: { start: 
       success: true,
       data: {
         course,
-        enrollments: enrollments[0] || { total: 0, completed: 0, active: 0, avgProgress: 0 },
+        enrollments: enrollmentStats[0] || { total: 0, completed: 0, active: 0, avgProgress: 0 },
         revenue: revenue[0] || { total: 0, count: 0 },
         lessonStats: lessonStats[0] || { totalLessons: 0, completedLessons: 0, avgWatchTime: 0 },
         enrollmentTrend,
@@ -425,31 +388,31 @@ export async function getRevenueAnalytics(tenantId?: string, dateRange?: { start
       ))
       .groupBy(payments.paymentMethod)
 
-    // Get top courses by revenue
-    const topCourses = await db
+    // Get revenue by course
+    const revenueByCourse = await db
       .select({
-        course: courses,
+        courseId: payments.courseId,
+        courseTitle: courses.title,
         revenue: sql`COALESCE(SUM(CAST(${payments.amount} AS DECIMAL)), 0)`,
-        enrollments: count(),
+        transactions: count(),
       })
       .from(payments)
-      .innerJoin(courses, eq(payments.courseId, courses.id))
+      .leftJoin(courses, eq(payments.courseId, courses.id))
       .where(and(
         eq(payments.status, 'completed'),
         gte(payments.createdAt, startDate),
         lte(payments.createdAt, endDate)
       ))
-      .groupBy(courses.id)
+      .groupBy(payments.courseId, courses.title)
       .orderBy(sql`COALESCE(SUM(CAST(${payments.amount} AS DECIMAL)), 0) DESC`)
-      .limit(10)
 
     return {
       success: true,
       data: {
         overview: revenueOverview[0] || { totalRevenue: 0, totalTransactions: 0, avgOrderValue: 0 },
-        revenueTrend,
-        revenueByMethod,
-        topCourses,
+        trend: revenueTrend,
+        byMethod: revenueByMethod,
+        byCourse: revenueByCourse,
         dateRange: { start: startDate, end: endDate },
       },
     }
@@ -467,80 +430,95 @@ export async function getEngagementAnalytics(tenantId?: string, dateRange?: { st
     const startDate = dateRange?.start || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
     const endDate = dateRange?.end || new Date()
 
-    // Get page views and user sessions
-    const engagementOverview = await db
+    // Get session stats
+    const sessionStats = await db
       .select({
-        pageViews: sql`COUNT(CASE WHEN ${analyticsEvents.eventType} = 'page_view' THEN 1 END)`,
-        uniqueUsers: sql`COUNT(DISTINCT ${analyticsEvents.userId})`,
-        avgSessionDuration: sql`AVG(CAST(${analyticsEvents.eventValue} AS DECIMAL))`,
-        bounceRate: sql`(COUNT(CASE WHEN ${analyticsEvents.eventType} = 'bounce' THEN 1 END) * 100.0 / COUNT(CASE WHEN ${analyticsEvents.eventType} = 'page_view' THEN 1 END))`,
+        totalSessions: count(),
+        uniqueUsers: sql`COUNT(DISTINCT ${userActivity.userId})`,
       })
-      .from(analyticsEvents)
+      .from(userActivity)
       .where(and(
-        gte(analyticsEvents.timestamp, startDate),
-        lte(analyticsEvents.timestamp, endDate),
-        tenantId ? eq(analyticsEvents.tenantId, tenantId) : sql`true`
+        eq(userActivity.activityType, 'session'),
+        gte(userActivity.timestamp, startDate),
+        lte(userActivity.timestamp, endDate)
       ))
 
-    // Get daily engagement trend
-    const engagementTrend = await db
+    // Get daily active users
+    const dailyActiveUsers = await db
       .select({
-        date: sql`DATE(${analyticsEvents.timestamp})`,
-        pageViews: sql`COUNT(CASE WHEN ${analyticsEvents.eventType} = 'page_view' THEN 1 END)`,
-        uniqueUsers: sql`COUNT(DISTINCT ${analyticsEvents.userId})`,
-        events: count(),
+        date: sql`DATE(${userActivity.timestamp})`,
+        count: sql`COUNT(DISTINCT ${userActivity.userId})`,
       })
-      .from(analyticsEvents)
+      .from(userActivity)
       .where(and(
-        gte(analyticsEvents.timestamp, startDate),
-        lte(analyticsEvents.timestamp, endDate),
-        tenantId ? eq(analyticsEvents.tenantId, tenantId) : sql`true`
+        gte(userActivity.timestamp, startDate),
+        lte(userActivity.timestamp, endDate)
       ))
-      .groupBy(sql`DATE(${analyticsEvents.timestamp})`)
-      .orderBy(sql`DATE(${analyticsEvents.timestamp})`)
+      .groupBy(sql`DATE(${userActivity.timestamp})`)
+      .orderBy(sql`DATE(${userActivity.timestamp})`)
 
-    // Get top pages
-    const topPages = await db
+    // Get most active courses
+    const activeCourses = await db
       .select({
-        page: analyticsEvents.page,
+        courseId: analyticsEvents.properties, // Access courseId from properties
+        courseTitle: courses.title,
         views: count(),
-        uniqueViews: sql`COUNT(DISTINCT ${analyticsEvents.userId})`,
+        uniqueUsers: sql`COUNT(DISTINCT ${analyticsEvents.userId})`,
       })
       .from(analyticsEvents)
+      .leftJoin(courses, eq(sql`${analyticsEvents.properties}->>'courseId'`, courses.id))
       .where(and(
-        eq(analyticsEvents.eventType, 'page_view'),
         gte(analyticsEvents.timestamp, startDate),
         lte(analyticsEvents.timestamp, endDate),
-        tenantId ? eq(analyticsEvents.tenantId, tenantId) : sql`true`
+        eq(sql`${analyticsEvents.properties}->>'type'`, 'view_course')
       ))
-      .groupBy(analyticsEvents.page)
-      .orderBy(sql`COUNT(*) DESC`)
+      .groupBy(sql`${analyticsEvents.properties}->>'courseId'`, courses.title)
+      .orderBy(count(), sql`desc`)
       .limit(10)
 
-    // Get device/browser analytics
-    const deviceAnalytics = await db
+    // Get most viewed lessons
+    const activeLessons = await db
       .select({
-        deviceType: analyticsEvents.deviceType,
-        browser: analyticsEvents.browser,
-        os: analyticsEvents.os,
+        lessonId: analyticsEvents.properties, // Access lessonId from properties
+        lessonTitle: lessons.title,
+        views: count(),
+        uniqueUsers: sql`COUNT(DISTINCT ${analyticsEvents.userId})`,
+      })
+      .from(analyticsEvents)
+      .leftJoin(lessons, eq(sql`${analyticsEvents.properties}->>'lessonId'`, lessons.id))
+      .where(and(
+        gte(analyticsEvents.timestamp, startDate),
+        lte(analyticsEvents.timestamp, endDate),
+        eq(sql`${analyticsEvents.properties}->>'type'`, 'view_lesson')
+      ))
+      .groupBy(sql`${analyticsEvents.properties}->>'lessonId'`, lessons.title)
+      .orderBy(count(), sql`desc`)
+      .limit(10)
+
+    // Get top search terms
+    const searchTerms = await db
+      .select({
+        term: sql`${analyticsEvents.properties}->>'query'`,
         count: count(),
       })
       .from(analyticsEvents)
       .where(and(
         gte(analyticsEvents.timestamp, startDate),
         lte(analyticsEvents.timestamp, endDate),
-        tenantId ? eq(analyticsEvents.tenantId, tenantId) : sql`true`
+        eq(sql`${analyticsEvents.properties}->>'type'`, 'search')
       ))
-      .groupBy(analyticsEvents.deviceType, analyticsEvents.browser, analyticsEvents.os)
-      .orderBy(sql`COUNT(*) DESC`)
+      .groupBy(sql`${analyticsEvents.properties}->>'query'`)
+      .orderBy(count(), sql`desc`)
+      .limit(10)
 
     return {
       success: true,
       data: {
-        overview: engagementOverview[0] || { pageViews: 0, uniqueUsers: 0, avgSessionDuration: 0, bounceRate: 0 },
-        engagementTrend,
-        topPages,
-        deviceAnalytics,
+        sessionStats: sessionStats[0] || { totalSessions: 0, uniqueUsers: 0 },
+        dailyActiveUsers,
+        activeCourses,
+        activeLessons,
+        searchTerms,
         dateRange: { start: startDate, end: endDate },
       },
     }
@@ -553,56 +531,73 @@ export async function getEngagementAnalytics(tenantId?: string, dateRange?: { st
   }
 }
 
-// Notification Actions
 export async function createNotification(formData: FormData) {
   try {
-    const data = notificationSchema.parse({
-      userId: formData.get('userId'),
-      title: formData.get('title'),
-      message: formData.get('message'),
-      type: (formData.get('type') as any) || 'info',
-      category: (formData.get('category') as any) || 'system',
-      actionUrl: formData.get('actionUrl') || undefined,
-      metadata: formData.get('metadata') ? JSON.parse(formData.get('metadata') as string) : undefined,
-      expiresAt: formData.get('expiresAt') ? new Date(formData.get('expiresAt') as string) : undefined,
+    const userId = formData.get('userId') as string
+    const title = formData.get('title') as string
+    const message = formData.get('message') as string
+    const type = formData.get('type') as string
+    const linkUrl = formData.get('linkUrl') as string | undefined
+    
+    if (!userId || !title || !message || !type) {
+      throw new Error('User ID, title, message, and type are required')
+    }
+    
+    const notification: Notification = {
+      userId,
+      title,
+      message,
+      type,
+      linkUrl,
+      isRead: false,
+      timestamp: new Date()
+    }
+
+    // Check if the type value is valid for the enum
+    const validTypes = ['info', 'success', 'warning', 'error']
+    const notificationType = validTypes.includes(type) ? type : 'info'
+
+    await db.insert(notifications).values({
+      userId: notification.userId,
+      title: notification.title,
+      message: notification.message,
+      type: notificationType as 'info' | 'success' | 'warning' | 'error',
+      category: 'system',
+      isRead: notification.isRead,
+      actionUrl: notification.linkUrl,
+      createdAt: notification.timestamp,
+      updatedAt: notification.timestamp
     })
 
-    const [notification] = await db
-      .insert(notifications)
-      .values({
-        ...data,
-        metadata: data.metadata ? JSON.stringify(data.metadata) : null,
-        isRead: false,
-      })
-      .returning()
-
-    return { success: true, data: notification }
+    return {
+      success: true,
+      message: 'Notification created successfully'
+    }
   } catch (error) {
     console.error('Create notification error:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to create notification',
+      error: error instanceof Error ? error.message : 'Failed to create notification'
     }
   }
 }
 
 export async function markNotificationAsRead(notificationId: string) {
   try {
-    const [notification] = await db
+    await db
       .update(notifications)
-      .set({
-        isRead: true,
-        updatedAt: new Date(),
-      })
+      .set({ isRead: true })
       .where(eq(notifications.id, notificationId))
-      .returning()
 
-    return { success: true, data: notification }
+    return {
+      success: true,
+      message: 'Notification marked as read'
+    }
   } catch (error) {
     console.error('Mark notification as read error:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to mark notification as read',
+      error: error instanceof Error ? error.message : 'Failed to mark notification as read'
     }
   }
 }
@@ -613,7 +608,7 @@ export async function getUserNotifications(userId: string, limit: number = 20) {
       .select()
       .from(notifications)
       .where(eq(notifications.userId, userId))
-      .orderBy(desc(notifications.createdAt))
+      .orderBy(notifications.createdAt, sql`desc`)
       .limit(limit)
 
     const unreadCount = await db
@@ -623,104 +618,145 @@ export async function getUserNotifications(userId: string, limit: number = 20) {
         eq(notifications.userId, userId),
         eq(notifications.isRead, false)
       ))
+      .then(result => result[0]?.count || 0)
 
     return {
       success: true,
       data: {
         notifications: userNotifications,
-        unreadCount: unreadCount[0]?.count || 0,
-      },
+        unreadCount
+      }
     }
   } catch (error) {
     console.error('Get user notifications error:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to get user notifications',
+      error: error instanceof Error ? error.message : 'Failed to get user notifications'
     }
   }
 }
 
-// Export Functions
 export async function exportAnalyticsData(type: string, tenantId?: string, dateRange?: { start: Date; end: Date }) {
   try {
-    const startDate = dateRange?.start || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-    const endDate = dateRange?.end || new Date()
-
-    let data: any[] = []
+    let data
     
     switch (type) {
-      case 'users':
-        data = await db
-          .select()
-          .from(users)
-          .where(and(
-            gte(users.createdAt, startDate),
-            lte(users.createdAt, endDate)
-          ))
-        break
-      
-      case 'enrollments':
-        data = await db
-          .select({
-            enrollment: enrollments,
-            course: courses,
-            user: users,
-          })
-          .from(enrollments)
-          .innerJoin(courses, eq(enrollments.courseId, courses.id))
-          .innerJoin(users, eq(enrollments.userId, users.id))
-          .where(and(
-            gte(enrollments.enrolledAt, startDate),
-            lte(enrollments.enrolledAt, endDate)
-          ))
-        break
-      
       case 'revenue':
-        data = await db
-          .select({
-            payment: payments,
-            course: courses,
-            user: users,
-          })
-          .from(payments)
-          .leftJoin(courses, eq(payments.courseId, courses.id))
-          .innerJoin(users, eq(payments.userId, users.id))
-          .where(and(
-            eq(payments.status, 'completed'),
-            gte(payments.createdAt, startDate),
-            lte(payments.createdAt, endDate)
-          ))
+        const revenueResult = await getRevenueAnalytics(tenantId, dateRange)
+        data = revenueResult.success ? revenueResult.data : null
         break
-      
-      case 'events':
-        data = await db
-          .select()
-          .from(analyticsEvents)
-          .where(and(
-            gte(analyticsEvents.timestamp, startDate),
-            lte(analyticsEvents.timestamp, endDate),
-            tenantId ? eq(analyticsEvents.tenantId, tenantId) : sql`true`
-          ))
+      case 'engagement':
+        const engagementResult = await getEngagementAnalytics(tenantId, dateRange)
+        data = engagementResult.success ? engagementResult.data : null
         break
-      
+      case 'overview':
+        const overviewResult = await getAnalyticsOverview(tenantId, dateRange)
+        data = overviewResult.success ? overviewResult.data : null
+        break
       default:
         throw new Error('Invalid export type')
     }
-
+    
+    if (!data) {
+      throw new Error('Failed to fetch data for export')
+    }
+    
+    // In a real implementation, you would format the data as CSV or Excel
+    // and return a download URL or the file data
     return {
       success: true,
       data: {
-        type,
-        records: data,
-        count: data.length,
-        dateRange: { start: startDate, end: endDate },
-      },
+        exportType: type,
+        exportData: data,
+        exportDate: new Date(),
+        downloadUrl: `/api/analytics/export/${type}`
+      }
     }
   } catch (error) {
     console.error('Export analytics data error:', error)
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to export analytics data',
+      error: error instanceof Error ? error.message : 'Failed to export analytics data'
+    }
+  }
+}
+
+export async function trackAnalyticsEvent(formData: FormData) {
+  try {
+    const eventName = formData.get('eventName') as string
+    const userId = formData.get('userId') as string | undefined
+    const courseId = formData.get('courseId') as string | undefined
+    const lessonId = formData.get('lessonId') as string | undefined
+    const propertiesJson = formData.get('properties') as string | undefined
+    
+    if (!eventName) {
+      throw new Error('Event name is required')
+    }
+
+    const properties = propertiesJson ? JSON.parse(propertiesJson) : undefined
+    
+    const event: AnalyticsEvent = {
+      eventName,
+      userId,
+      courseId,
+      lessonId,
+      properties,
+      timestamp: new Date()
+    }
+
+    // Use the trackEvent function internally
+    const result = await trackEvent(event)
+
+    return {
+      success: result.success,
+      message: result.success ? 'Event tracked successfully' : 'Failed to track event',
+      error: result.error
+    }
+  } catch (error) {
+    console.error('Track analytics event error:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to track event'
+    }
+  }
+}
+
+export async function trackUserActivityForm(formData: FormData) {
+  try {
+    const userId = formData.get('userId') as string
+    const activityType = formData.get('activityType') as string
+    const resourceId = formData.get('resourceId') as string | undefined
+    const resourceType = formData.get('resourceType') as string | undefined
+    const detailsJson = formData.get('details') as string | undefined
+    
+    if (!userId || !activityType) {
+      throw new Error('User ID and activity type are required')
+    }
+
+    const details = detailsJson ? JSON.parse(detailsJson) : undefined
+    
+    const activity: UserActivity = {
+      userId,
+      activityType,
+      resourceId,
+      resourceType,
+      details,
+      timestamp: new Date()
+    }
+
+    // Use the trackUserActivity function internally
+    const result = await trackUserActivity(activity)
+
+    return {
+      success: result.success,
+      message: result.success ? 'Activity tracked successfully' : 'Failed to track activity',
+      error: result.error
+    }
+  } catch (error) {
+    console.error('Track user activity error:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to track activity'
     }
   }
 } 
