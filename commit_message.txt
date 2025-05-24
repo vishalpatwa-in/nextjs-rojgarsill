@@ -1,8 +1,9 @@
-[Cursor] Fix Vercel deployment configuration for free tier compatibility
+[Cursor] Fix invalid regex pattern in Vercel headers configuration
 
-- Remove multiple regions configuration from vercel.json
-- Free tier only supports single region deployment
-- Fix formatting issues in configuration
-- Update .cursorrules with learned lesson about Vercel limitations
+- Remove complex regex pattern "/(.*\\.(ico|png|jpg|jpeg|gif|webp|svg|css|js))" from headers
+- Vercel doesn't support complex regex in headers source patterns
+- Keep essential cache headers for _next/static and images directories
+- Clean up vercel.json formatting for better readability
+- Update .cursorrules with learned lesson about Vercel header patterns
 
-The platform is now compatible with Vercel free tier and ready for deployment. 
+Configuration now passes Vercel validation and is deployment-ready. 
